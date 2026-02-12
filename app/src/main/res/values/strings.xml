@@ -1,0 +1,66 @@
+<resources>
+    <string name="app_name">SmartMail</string>
+    
+    <!-- Navigation -->
+    <string name="nav_inbox">Posta in arrivo</string>
+    <string name="nav_compose">Scrivi</string>
+    <string name="nav_settings">Impostazioni</string>
+    
+    <!-- Folders -->
+    <string name="folder_inbox">Posta in arrivo</string>
+    <string name="folder_sent">Inviati</string>
+    <string name="folder_drafts">Bozze</string>
+    <string name="folder_trash">Cestino</string>
+    <string name="folder_spam">Spam</string>
+    <string name="folder_starred">Speciali</string>
+    <string name="folder_important">Importanti</string>
+    <string name="folder_work">Lavoro</string>
+    <string name="folder_personal">Personale</string>
+    <string name="folder_attachments">Con allegati</string>
+    
+    <!-- Actions -->
+    <string name="action_reply">Rispondi</string>
+    <string name="action_forward">Inoltra</string>
+    <string name="action_delete">Elimina</string>
+    <string name="action_archive">Archivia</string>
+    <string name="action_mark_read">Segna come letto</string>
+    <string name="action_mark_unread">Segna come non letto</string>
+    <string name="action_star">Aggiungi stella</string>
+    <string name="action_search">Cerca</string>
+    
+    <!-- Compose -->
+    <string name="compose_to">A:</string>
+    <string name="compose_cc">Cc:</string>
+    <string name="compose_bcc">Ccn:</string>
+    <string name="compose_subject">Oggetto</string>
+    <string name="compose_message">Scrivi il messaggio…</string>
+    <string name="compose_send">Invia</string>
+    <string name="compose_attach">Allega file</string>
+    
+    <!-- Settings -->
+    <string name="settings_accounts">Account</string>
+    <string name="settings_add_account">Aggiungi account</string>
+    <string name="settings_sync">Sincronizzazione</string>
+    <string name="settings_notifications">Notifiche</string>
+    <string name="settings_filters">Filtri intelligenti</string>
+    <string name="settings_appearance">Aspetto</string>
+    
+    <!-- Account setup -->
+    <string name="account_email">Email</string>
+    <string name="account_password">Password</string>
+    <string name="account_type">Tipo account</string>
+    <string name="account_gmail">Gmail</string>
+    <string name="account_virgilio">Virgilio</string>
+    <string name="account_other">Altro (IMAP)</string>
+    
+    <!-- Sync -->
+    <string name="sync_now">Sincronizza ora</string>
+    <string name="sync_interval">Intervallo sincronizzazione</string>
+    <string name="syncing">Sincronizzazione in corso…</string>
+    
+    <!-- General -->
+    <string name="loading">Caricamento…</string>
+    <string name="error">Errore</string>
+    <string name="no_emails">Nessuna email</string>
+    <string name="inbox_zero">Ottimo lavoro! Inbox Zero! 🎉</string>
+</resources>

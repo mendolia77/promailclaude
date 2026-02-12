@@ -1,0 +1,36 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./gradlew assembleDebug:*)",
+      "Bash(/c/Users/G_mendolia/Desktop/promail/ProMail/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml << 'EOF'\n<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<adaptive-icon xmlns:android=\"http://schemas.android.com/apk/res/android\">\n    <background android:drawable=\"@drawable/ic_launcher_background_gradient\"/>\n    <foreground android:drawable=\"@drawable/ic_launcher_foreground\"/>\n</adaptive-icon>\nEOF)",
+      "Bash(/c/Users/G_mendolia/Desktop/promail/ProMail/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml << 'EOF'\n<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<adaptive-icon xmlns:android=\"http://schemas.android.com/apk/res/android\">\n    <background android:drawable=\"@drawable/ic_launcher_background_gradient\"/>\n    <foreground android:drawable=\"@drawable/ic_launcher_foreground\"/>\n</adaptive-icon>\nEOF)",
+      "Bash(find:*)",
+      "Bash(ls:*)",
+      "Bash(where:*)",
+      "Bash(./adb:*)",
+      "Bash(./gradlew clean:*)",
+      "Bash(adb uninstall:*)",
+      "Bash(export:*)",
+      "Bash(/c/Users/G_mendolia/AppData/Local/Android/Sdk/platform-tools/adb.exe uninstall com.smartmail)",
+      "Bash(/c/Users/G_mendolia/AppData/Local/Android/Sdk/platform-tools/adb.exe install -r \"C:/Users/G_mendolia/Desktop/SmartMail.apk\")",
+      "Bash(/c/Users/G_mendolia/AppData/Local/Android/Sdk/platform-tools/adb.exe logcat:*)",
+      "Bash(/c/Users/G_mendolia/AppData/Local/Android/Sdk/platform-tools/adb.exe shell pm list packages:*)",
+      "Bash(/c/Users/G_mendolia/AppData/Local/Android/Sdk/platform-tools/adb.exe devices)",
+      "Bash(/c/Users/G_mendolia/AppData/Local/Android/Sdk/platform-tools/adb.exe shell am start:*)",
+      "Bash(adb logcat:*)",
+      "Bash(./adb.exe logcat:*)",
+      "Bash(./adb.exe shell pidof:*)",
+      "Bash(./adb.exe install:*)",
+      "Bash(./gradlew.bat installDebug:*)",
+      "Bash(./gradlew.bat assembleDebug:*)",
+      "Bash(./gradlew.bat compileDebugKotlin:*)",
+      "Bash(gradlew.bat assembleDebug)",
+      "Bash(adb install:*)",
+      "Bash(\"C:\\\\Users\\\\G_mendolia\\\\AppData\\\\Local\\\\Android\\\\Sdk\\\\platform-tools\\\\adb.exe\" install -r \"C:\\\\Users\\\\G_mendolia\\\\Desktop\\\\promail\\\\ProMail\\\\app\\\\build\\\\outputs\\\\apk\\\\debug\\\\app-debug.apk\")",
+      "Bash(./gradlew.bat:*)",
+      "Bash(git init:*)",
+      "Bash(git config:*)",
+      "Bash(git add:*)"
+    ]
+  }
+}

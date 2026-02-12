@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Safe zone: 72x72 centered in 108x108 -->
+    <group
+        android:translateX="18"
+        android:translateY="18">
+
+        <!-- Envelope Body Outline -->
+        <path
+            android:pathData="M18,28 L54,50 L90,28 L90,80 L18,80 Z"
+            android:strokeWidth="3.5"
+            android:strokeColor="#FFFFFF"
+            android:fillColor="#00000000"
+            android:strokeAlpha="0.95"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"/>
+
+        <!-- Envelope Flap -->
+        <path
+            android:pathData="M18,28 L54,50 L90,28"
+            android:strokeWidth="3.5"
+            android:strokeColor="#FFFFFF"
+            android:fillColor="#00000000"
+            android:strokeAlpha="0.95"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"/>
+
+        <!-- Lightning Bolt - Glow Layer (outer) -->
+        <path
+            android:pathData="M54,32 L48,46 L55,46 L50,60 L58,46 L51,46 Z"
+            android:fillColor="#FFD700"
+            android:fillAlpha="0.3"/>
+
+        <!-- Lightning Bolt - Glow Layer (middle) -->
+        <path
+            android:pathData="M54,33 L49,45 L54.5,45 L50.5,58 L57,45 L51.5,45 Z"
+            android:fillColor="#FFD700"
+            android:fillAlpha="0.6"/>
+
+        <!-- Lightning Bolt - Main -->
+        <path
+            android:pathData="M54,34 L50,44 L54,44 L51,56 L56,44 L52,44 Z"
+            android:fillColor="#FFD700"/>
+
+        <!-- Lightning Bolt - Highlight -->
+        <path
+            android:pathData="M53,36 L51.5,42 L53,42 Z"
+            android:fillColor="#FFFFFF"
+            android:fillAlpha="0.6"/>
+
+        <!-- Smart AI Indicator Dots -->
+        <!-- Top Right Dot -->
+        <path
+            android:pathData="M75,25 m-2.5,0 a2.5,2.5 0 1,1 5,0 a2.5,2.5 0 1,1 -5,0"
+            android:fillColor="#00E5FF"
+            android:fillAlpha="0.9"/>
+
+        <!-- Middle Right Dot -->
+        <path
+            android:pathData="M78,32 m-2,0 a2,2 0 1,1 4,0 a2,2 0 1,1 -4,0"
+            android:fillColor="#00E5FF"
+            android:fillAlpha="0.7"/>
+
+        <!-- Bottom Right Dot -->
+        <path
+            android:pathData="M75,38 m-1.5,0 a1.5,1.5 0 1,1 3,0 a1.5,1.5 0 1,1 -3,0"
+            android:fillColor="#00E5FF"
+            android:fillAlpha="0.5"/>
+
+    </group>
+</vector>
