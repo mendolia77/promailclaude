@@ -4,9 +4,9 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.smartmail.data.backup.BackupManager
-import com.smartmail.data.backup.GoogleDriveBackupManager
-import com.smartmail.data.backup.DriveBackupFile
-import com.google.android.gms.auth.api.signin.GoogleSignInAccount
+import com.smartmail.data.backup.CloudBackupManager
+import android.content.Intent
+import android.net.Uri
 import com.smartmail.data.local.database.SmartMailDatabase
 import com.smartmail.data.preferences.AppPreferences
 import com.smartmail.data.remote.ImapClient
@@ -49,13 +49,9 @@ data class SettingsUiState(
     val isCreatingBackup: Boolean = false,
     val isRestoringBackup: Boolean = false,
     val backupResult: BackupResult? = null,
-    // Google Drive
-    val isSignedInToGoogleDrive: Boolean = false,
-    val googleAccount: GoogleSignInAccount? = null,
-    val driveBackups: List<DriveBackupFile> = emptyList(),
-    val isUploadingToDrive: Boolean = false,
-    val isDownloadingFromDrive: Boolean = false,
-    val driveResult: DriveResult? = null
+    // Cloud Backup
+    val cloudBackupIntent: Intent? = null,
+    val cloudRestoreIntent: Intent? = null
 )
 
 sealed class TestResult {
@@ -73,10 +69,6 @@ sealed class BackupResult {
     data class Error(val message: String) : BackupResult()
 }
 
-sealed class DriveResult {
-    data class Success(val message: String) : DriveResult()
-    data class Error(val message: String) : DriveResult()
-}
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -85,7 +77,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     private val repository = EmailRepository(db.accountDao(), db.emailDao(), db.smartFolderDao())
     private val prefs = AppPreferences(context)
     private val backupManager = BackupManager(context)
-    private val driveBackupManager = GoogleDriveBackupManager(context)
+    private val cloudBackupManager = CloudBackupManager(context)
 
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
@@ -97,7 +89,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             }
         }
         loadSyncInterval()
-        checkGoogleDriveSignIn()
     }
 
     private fun loadSyncInterval() {
@@ -392,142 +383,77 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         _uiState.update { it.copy(backupResult = null) }
     }
 
-    // === GOOGLE DRIVE BACKUP ===
+    // === CLOUD BACKUP (via sistema Android) ===
 
-    fun getGoogleSignInClient() = driveBackupManager.getGoogleSignInClient()
-
-    private fun checkGoogleDriveSignIn() {
-        val isSignedIn = driveBackupManager.isSignedIn()
-        val account = driveBackupManager.getSignedInAccount()
-        _uiState.update {
-            it.copy(
-                isSignedInToGoogleDrive = isSignedIn,
-                googleAccount = account
-            )
-        }
-    }
-
-    fun handleGoogleSignInResult(account: GoogleSignInAccount) {
+    /**
+     * Prepara l'Intent per condividere il backup su cloud.
+     */
+    fun prepareShareBackupToCloud(backupFile: File) {
         viewModelScope.launch {
-            val result = driveBackupManager.initializeDriveService(account)
+            val result = cloudBackupManager.shareBackupToCloud(backupFile)
             result.fold(
-                onSuccess = {
-                    _uiState.update {
-                        it.copy(
-                            isSignedInToGoogleDrive = true,
-                            googleAccount = account
-                        )
-                    }
-                    loadDriveBackups()
+                onSuccess = { intent ->
+                    _uiState.update { it.copy(cloudBackupIntent = intent) }
                 },
                 onFailure = { error ->
                     _uiState.update {
-                        it.copy(driveResult = DriveResult.Error("Errore login: ${error.message}"))
+                        it.copy(backupResult = BackupResult.Error("Errore: ${error.message}"))
                     }
                 }
             )
         }
     }
 
-    fun signOutFromGoogleDrive() {
-        viewModelScope.launch {
-            driveBackupManager.signOut()
-            _uiState.update {
-                it.copy(
-                    isSignedInToGoogleDrive = false,
-                    googleAccount = null,
-                    driveBackups = emptyList()
-                )
-            }
-        }
+    /**
+     * Crea l'Intent per ripristinare da cloud.
+     */
+    fun prepareRestoreFromCloud() {
+        val intent = cloudBackupManager.createRestoreFromCloudIntent()
+        _uiState.update { it.copy(cloudRestoreIntent = intent) }
     }
 
-    fun loadDriveBackups() {
-        viewModelScope.launch {
-            val result = driveBackupManager.listBackups()
-            result.fold(
-                onSuccess = { backups ->
-                    _uiState.update { it.copy(driveBackups = backups) }
-                },
-                onFailure = { error ->
-                    _uiState.update {
-                        it.copy(driveResult = DriveResult.Error("Errore caricamento: ${error.message}"))
-                    }
-                }
-            )
-        }
-    }
-
-    fun uploadBackupToDrive(localBackup: File) {
-        _uiState.update { it.copy(isUploadingToDrive = true, driveResult = null) }
+    /**
+     * Importa e ripristina un backup selezionato dal cloud.
+     */
+    fun importAndRestoreFromCloud(uri: Uri) {
+        _uiState.update { it.copy(isRestoringBackup = true, backupResult = null) }
 
         viewModelScope.launch {
-            val result = driveBackupManager.uploadBackup(localBackup)
+            // Importa il file dal cloud
+            val importResult = cloudBackupManager.importBackupFromCloud(uri)
 
-            result.fold(
-                onSuccess = { fileId ->
-                    _uiState.update {
-                        it.copy(
-                            isUploadingToDrive = false,
-                            driveResult = DriveResult.Success("Backup caricato su Drive")
-                        )
-                    }
-                    loadDriveBackups()
-                },
-                onFailure = { error ->
-                    _uiState.update {
-                        it.copy(
-                            isUploadingToDrive = false,
-                            driveResult = DriveResult.Error("Errore upload: ${error.message}")
-                        )
-                    }
-                }
-            )
-        }
-    }
-
-    fun downloadAndRestoreFromDrive(driveFile: DriveBackupFile) {
-        _uiState.update { it.copy(isDownloadingFromDrive = true, driveResult = null) }
-
-        viewModelScope.launch {
-            // Scarica il file in una directory temporanea
-            val tempFile = File(context.cacheDir, driveFile.name)
-
-            val downloadResult = driveBackupManager.downloadBackup(driveFile.id, tempFile)
-
-            downloadResult.fold(
-                onSuccess = {
-                    // Ora ripristina dal file scaricato
+            importResult.fold(
+                onSuccess = { importedFile ->
+                    // Chiudi il database
                     db.close()
-                    val restoreResult = backupManager.restoreBackup(tempFile)
+
+                    // Ripristina dal file importato
+                    val restoreResult = backupManager.restoreBackup(importedFile)
 
                     restoreResult.fold(
                         onSuccess = {
                             _uiState.update {
                                 it.copy(
-                                    isDownloadingFromDrive = false,
-                                    driveResult = DriveResult.Success("Ripristino completato. Riavvia l'app.")
+                                    isRestoringBackup = false,
+                                    backupResult = BackupResult.Success("Ripristino completato. Riavvia l'app.")
                                 )
                             }
-                            // Elimina il file temporaneo
-                            tempFile.delete()
                         },
                         onFailure = { error ->
                             _uiState.update {
                                 it.copy(
-                                    isDownloadingFromDrive = false,
-                                    driveResult = DriveResult.Error("Errore ripristino: ${error.message}")
+                                    isRestoringBackup = false,
+                                    backupResult = BackupResult.Error("Errore ripristino: ${error.message}")
                                 )
                             }
-                            tempFile.delete()
                         }
                     )
                 },
                 onFailure = { error ->
                     _uiState.update {
                         it.copy(
-                            isDownloadingFromDrive = false,
-                            driveResult = DriveResult.Error("Errore download: ${error.message}")
+                            isRestoringBackup = false,
+                            backupResult = BackupResult.Error("Errore importazione: ${error.message}")
                         )
                     }
                 }
@@ -535,24 +461,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    fun deleteDriveBackup(driveFile: DriveBackupFile) {
-        viewModelScope.launch {
-            val result = driveBackupManager.deleteBackup(driveFile.id)
-
-            result.fold(
-                onSuccess = {
-                    loadDriveBackups()
-                },
-                onFailure = { error ->
-                    _uiState.update {
-                        it.copy(driveResult = DriveResult.Error("Errore eliminazione: ${error.message}"))
-                    }
-                }
-            )
-        }
-    }
-
-    fun clearDriveResult() {
-        _uiState.update { it.copy(driveResult = null) }
+    fun clearCloudIntents() {
+        _uiState.update { it.copy(cloudBackupIntent = null, cloudRestoreIntent = null) }
     }
 }

@@ -28,16 +28,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import com.google.android.gms.auth.api.signin.GoogleSignIn
-import com.google.android.gms.common.api.ApiException
 import com.smartmail.data.preferences.ThemeMode
 import com.smartmail.data.preferences.ThemePreferences
 import com.smartmail.domain.models.Account
 import com.smartmail.domain.models.AccountType
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -862,19 +857,32 @@ private fun BackupDialog(
     viewModel: SettingsViewModel
 ) {
     var selectedTab by remember { mutableStateOf(0) }
+    val context = LocalContext.current
 
-    // Launcher per Google Sign-In
-    val signInLauncher = rememberLauncherForActivityResult(
+    // Launcher per ripristinare da cloud
+    val restoreFromCloudLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
-        try {
-            val account = task.getResult(ApiException::class.java)
-            if (account != null) {
-                viewModel.handleGoogleSignInResult(account)
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            result.data?.data?.let { uri ->
+                viewModel.importAndRestoreFromCloud(uri)
             }
-        } catch (e: ApiException) {
-            // Login fallito
+        }
+        viewModel.clearCloudIntents()
+    }
+
+    // Effetto per lanciare l'Intent di condivisione quando pronto
+    LaunchedEffect(uiState.cloudBackupIntent) {
+        uiState.cloudBackupIntent?.let { intent ->
+            context.startActivity(intent)
+            viewModel.clearCloudIntents()
+        }
+    }
+
+    // Effetto per lanciare l'Intent di ripristino quando pronto
+    LaunchedEffect(uiState.cloudRestoreIntent) {
+        uiState.cloudRestoreIntent?.let { intent ->
+            restoreFromCloudLauncher.launch(intent)
         }
     }
 
@@ -941,7 +949,7 @@ private fun BackupDialog(
                 // Contenuto in base al tab selezionato
                 when (selectedTab) {
                     0 -> LocalBackupContent(uiState, viewModel)
-                    1 -> GoogleDriveBackupContent(uiState, viewModel, signInLauncher)
+                    1 -> CloudBackupContent(uiState, viewModel)
                 }
 
                 Spacer(modifier = Modifier.height(20.dp))
@@ -1092,226 +1100,23 @@ private fun LocalBackupContent(
                     }
                 }
 
-        // Opzione: Carica su Google Drive
-        uiState.availableBackups.firstOrNull()?.let { latestBackup ->
-            OutlinedButton(
-                onClick = { viewModel.uploadBackupToDrive(latestBackup) },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !uiState.isUploadingToDrive && uiState.isSignedInToGoogleDrive
-            ) {
-                if (uiState.isUploadingToDrive) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(18.dp),
-                        strokeWidth = 2.dp
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Caricamento...")
-                } else {
-                    Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Carica Ultimo Backup su Drive")
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun GoogleDriveBackupContent(
-    uiState: SettingsUiState,
-    viewModel: SettingsViewModel,
-    signInLauncher: androidx.activity.result.ActivityResultLauncher<android.content.Intent>
-) {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        // Stato login
-        if (!uiState.isSignedInToGoogleDrive) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
-                )
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Icon(
-                        Icons.Default.Cloud,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(48.dp)
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        text = "Accedi a Google Drive",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Salva i tuoi backup nel cloud per maggiore sicurezza",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Button(
-                        onClick = {
-                            val signInIntent = viewModel.getGoogleSignInClient().signInIntent
-                            signInLauncher.launch(signInIntent)
-                        }
-                    ) {
-                        Icon(Icons.Default.Login, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Accedi con Google")
-                    }
-                }
-            }
-        } else {
-            // Account connesso
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                )
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        Icons.Default.AccountCircle,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(32.dp)
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = uiState.googleAccount?.email ?: "Account Google",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Medium
-                        )
-                        Text(
-                            text = "Connesso",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                    TextButton(onClick = { viewModel.signOutFromGoogleDrive() }) {
-                        Text("Disconnetti")
-                    }
-                }
-            }
-
-            // Risultato operazioni Drive
-            uiState.driveResult?.let { result ->
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = when (result) {
-                            is DriveResult.Success -> MaterialTheme.colorScheme.primaryContainer
-                            is DriveResult.Error -> MaterialTheme.colorScheme.errorContainer
-                        }
-                    )
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            when (result) {
-                                is DriveResult.Success -> Icons.Default.CheckCircle
-                                is DriveResult.Error -> Icons.Default.Error
-                            },
-                            contentDescription = null,
-                            tint = when (result) {
-                                is DriveResult.Success -> MaterialTheme.colorScheme.onPrimaryContainer
-                                is DriveResult.Error -> MaterialTheme.colorScheme.onErrorContainer
-                            }
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = when (result) {
-                                is DriveResult.Success -> result.message
-                                is DriveResult.Error -> result.message
-                            },
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = when (result) {
-                                is DriveResult.Success -> MaterialTheme.colorScheme.onPrimaryContainer
-                                is DriveResult.Error -> MaterialTheme.colorScheme.onErrorContainer
-                            }
-                        )
-                    }
-                }
-            }
-
-            // Lista backup su Drive
+        // Opzione: Condividi/Salva su Cloud
+        if (uiState.availableBackups.isNotEmpty()) {
             Text(
-                text = "Backup su Google Drive (${uiState.driveBackups.size})",
+                text = "Condividi Backup",
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
-            if (uiState.driveBackups.isEmpty()) {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-                    )
+            uiState.availableBackups.forEach { backupFile ->
+                OutlinedButton(
+                    onClick = { viewModel.prepareShareBackupToCloud(backupFile) },
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Icon(
-                            Icons.Default.CloudOff,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                            modifier = Modifier.size(48.dp)
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Nessun backup su Drive",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "Carica un backup dalla sezione Locale",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                        )
-                    }
-                }
-            } else {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = 300.dp)
-                        .verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    uiState.driveBackups.forEach { driveFile ->
-                        DriveBackupItem(
-                            driveFile = driveFile,
-                            isDownloading = uiState.isDownloadingFromDrive,
-                            onRestore = { viewModel.downloadAndRestoreFromDrive(driveFile) },
-                            onDelete = { viewModel.deleteDriveBackup(driveFile) }
-                        )
-                    }
+                    Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Salva ${backupFile.name} su Cloud")
                 }
             }
         }
@@ -1319,113 +1124,122 @@ private fun GoogleDriveBackupContent(
 }
 
 @Composable
-private fun DriveBackupItem(
-    driveFile: com.smartmail.data.backup.DriveBackupFile,
-    isDownloading: Boolean,
-    onRestore: () -> Unit,
-    onDelete: () -> Unit
+private fun CloudBackupContent(
+    uiState: SettingsUiState,
+    viewModel: SettingsViewModel
 ) {
-    var showDeleteConfirm by remember { mutableStateOf(false) }
-    val dateFormat = remember { SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()) }
-
-    Card(
+    Column(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-        )
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp)
+        // Info Card
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+            )
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Icon(
-                    Icons.Default.CloudQueue,
+                    Icons.Default.Cloud,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(48.dp)
                 )
-                Spacer(modifier = Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = driveFile.name,
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Text(
-                        text = "${driveFile.size / 1024} KB • ${dateFormat.format(Date(driveFile.modifiedTime))}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                OutlinedButton(
-                    onClick = onRestore,
-                    modifier = Modifier.weight(1f),
-                    enabled = !isDownloading
-                ) {
-                    if (isDownloading) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(18.dp),
-                            strokeWidth = 2.dp
-                        )
-                    } else {
-                        Icon(Icons.Default.CloudDownload, contentDescription = null, modifier = Modifier.size(18.dp))
-                    }
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Ripristina")
-                }
-                OutlinedButton(
-                    onClick = { showDeleteConfirm = true },
-                    modifier = Modifier.weight(1f),
-                    enabled = !isDownloading,
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error
-                    )
-                ) {
-                    Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Elimina")
-                }
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = "Salva e Ripristina da Cloud",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Usa il sistema di condivisione Android per salvare i backup su qualsiasi servizio cloud (Google Drive, Dropbox, OneDrive, etc.)",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
             }
         }
-    }
 
-    if (showDeleteConfirm) {
-        AlertDialog(
-            onDismissRequest = { showDeleteConfirm = false },
-            icon = { Icon(Icons.Default.Warning, contentDescription = null) },
-            title = { Text("Elimina Backup da Drive") },
-            text = { Text("Sei sicuro di voler eliminare questo backup da Google Drive?\n\n${driveFile.name}") },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        onDelete()
-                        showDeleteConfirm = false
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error
-                    )
-                ) {
-                    Text("Elimina")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteConfirm = false }) {
-                    Text("Annulla")
-                }
+        // Pulsante Ripristina da Cloud
+        Button(
+            onClick = { viewModel.prepareRestoreFromCloud() },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !uiState.isRestoringBackup
+        ) {
+            if (uiState.isRestoringBackup) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(20.dp),
+                    strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.onPrimary
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Ripristino in corso...")
+            } else {
+                Icon(Icons.Default.CloudDownload, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Ripristina Backup da Cloud")
             }
-        )
+        }
+
+        // Info su come funziona
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+            )
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Default.Info,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = "Come funziona",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Text(
+                    text = "1. Per salvare su cloud: vai al tab 'Locale', crea un backup e usa il pulsante 'Salva su Cloud'",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    text = "2. Per ripristinare: clicca 'Ripristina da Cloud' e seleziona il file backup dal tuo servizio cloud",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    text = "3. Puoi scegliere dove salvare: Drive, Dropbox, OneDrive, email, etc.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
     }
 }
 
