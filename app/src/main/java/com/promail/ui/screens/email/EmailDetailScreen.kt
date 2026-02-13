@@ -1,10 +1,17 @@
 package com.smartmail.ui.screens.email
 
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.os.Environment
 import android.text.Html
 import android.webkit.WebView
 import android.widget.Toast
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -572,6 +579,7 @@ fun AttachmentsSection(email: Email) {
     }
 
     var downloadingIndex by remember { mutableStateOf<Int?>(null) }
+    var expandedActions by remember { mutableStateOf<Int?>(null) }
 
     Column(
         modifier = Modifier
@@ -589,68 +597,135 @@ fun AttachmentsSection(email: Email) {
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 8.dp)
-                    .clickable(enabled = downloadingIndex == null) {
-                        downloadingIndex = index
-                        scope.launch {
-                            downloadAttachment(
-                                context = context,
-                                email = email,
-                                attachment = attachment,
-                                attachmentIndex = index,
-                                db = db,
-                                onComplete = { downloadingIndex = null }
-                            )
-                        }
-                    },
+                    .padding(bottom = 8.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                 )
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = when {
-                            attachment.mimeType.startsWith("image/") -> Icons.Filled.Image
-                            attachment.mimeType.startsWith("video/") -> Icons.Filled.VideoLibrary
-                            attachment.mimeType.startsWith("audio/") -> Icons.Filled.AudioFile
-                            attachment.mimeType.contains("pdf") -> Icons.Filled.PictureAsPdf
-                            else -> Icons.Filled.AttachFile
-                        },
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = attachment.filename,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Medium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            text = formatFileSize(attachment.size),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                        )
-                    }
-
-                    if (downloadingIndex == index) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(24.dp),
-                            strokeWidth = 2.dp
-                        )
-                    } else {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(enabled = downloadingIndex == null) {
+                                downloadingIndex = index
+                                scope.launch {
+                                    downloadAttachment(
+                                        context = context,
+                                        email = email,
+                                        attachment = attachment,
+                                        attachmentIndex = index,
+                                        db = db,
+                                        onComplete = { downloadingIndex = null }
+                                    )
+                                }
+                            }
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         Icon(
-                            Icons.Filled.Download,
-                            contentDescription = "Scarica",
+                            imageVector = when {
+                                attachment.mimeType.startsWith("image/") -> Icons.Filled.Image
+                                attachment.mimeType.startsWith("video/") -> Icons.Filled.VideoLibrary
+                                attachment.mimeType.startsWith("audio/") -> Icons.Filled.AudioFile
+                                attachment.mimeType.contains("pdf") -> Icons.Filled.PictureAsPdf
+                                else -> Icons.Filled.AttachFile
+                            },
+                            contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary
                         )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = attachment.filename,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = formatFileSize(attachment.size),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                            )
+                        }
+
+                        if (downloadingIndex == index) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                IconButton(
+                                    onClick = {
+                                        expandedActions = if (expandedActions == index) null else index
+                                    }
+                                ) {
+                                    Icon(
+                                        Icons.Filled.MoreVert,
+                                        contentDescription = "Altre opzioni",
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // Menu azioni espanso
+                    if (expandedActions == index) {
+                        Divider(thickness = 1.dp, color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 8.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceEvenly
+                        ) {
+                            // Pulsante Scarica
+                            TextButton(
+                                onClick = {
+                                    expandedActions = null
+                                    downloadingIndex = index
+                                    scope.launch {
+                                        downloadAttachment(
+                                            context = context,
+                                            email = email,
+                                            attachment = attachment,
+                                            attachmentIndex = index,
+                                            db = db,
+                                            onComplete = { downloadingIndex = null }
+                                        )
+                                    }
+                                }
+                            ) {
+                                Icon(Icons.Filled.Download, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Scarica")
+                            }
+
+                            // Pulsante Visualizza
+                            TextButton(
+                                onClick = {
+                                    expandedActions = null
+                                    downloadingIndex = index
+                                    scope.launch {
+                                        downloadAndOpenAttachment(
+                                            context = context,
+                                            email = email,
+                                            attachment = attachment,
+                                            attachmentIndex = index,
+                                            db = db,
+                                            onComplete = { downloadingIndex = null }
+                                        )
+                                    }
+                                }
+                            ) {
+                                Icon(Icons.Filled.Visibility, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Apri")
+                            }
+                        }
                     }
                 }
             }
@@ -726,23 +801,30 @@ private suspend fun downloadAttachment(
                 finalFile.writeBytes(data)
 
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(context, "Allegato salvato in Download: ${finalFile.name}", Toast.LENGTH_LONG).show()
+                    // Mostra notifica di successo
+                    showDownloadNotification(context, finalFile, attachment)
 
-                    // Open file with default app
+                    Toast.makeText(context, "✓ Allegato scaricato: ${finalFile.name}", Toast.LENGTH_LONG).show()
+
+                    // Chiedi se aprire o condividere
                     try {
                         val uri = FileProvider.getUriForFile(
                             context,
                             "${context.packageName}.fileprovider",
                             finalFile
                         )
-                        val intent = Intent(Intent.ACTION_VIEW).apply {
+
+                        // Crea Intent per aprire il file
+                        val openIntent = Intent(Intent.ACTION_VIEW).apply {
                             setDataAndType(uri, attachment.mimeType)
                             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                         }
-                        context.startActivity(Intent.createChooser(intent, "Apri con"))
+
+                        context.startActivity(Intent.createChooser(openIntent, "Apri con"))
                     } catch (e: Exception) {
-                        // File saved but can't open - that's okay
+                        // File salvato ma non può essere aperto - mostra solo la posizione
+                        Toast.makeText(context, "File salvato in Download/${finalFile.name}", Toast.LENGTH_SHORT).show()
                     }
 
                     onComplete()
@@ -759,6 +841,169 @@ private suspend fun downloadAttachment(
                 onComplete()
             }
         }
+    }
+}
+
+private suspend fun downloadAndOpenAttachment(
+    context: android.content.Context,
+    email: Email,
+    attachment: EmailAttachment,
+    attachmentIndex: Int,
+    db: SmartMailDatabase,
+    onComplete: () -> Unit
+) {
+    withContext(Dispatchers.IO) {
+        try {
+            // Get account for email
+            val account = db.accountDao().getAccountById(email.accountId)
+            if (account == null) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Account non trovato", Toast.LENGTH_SHORT).show()
+                    onComplete()
+                }
+                return@withContext
+            }
+
+            // Connect to IMAP and download
+            val imapClient = ImapClient(account)
+            val connectResult = imapClient.connect()
+
+            if (connectResult.isFailure) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Errore connessione", Toast.LENGTH_SHORT).show()
+                    onComplete()
+                }
+                return@withContext
+            }
+
+            val downloadResult = imapClient.downloadAttachment(
+                messageId = email.messageId,
+                folderName = email.folderName,
+                attachmentIndex = attachmentIndex
+            )
+
+            imapClient.disconnect()
+
+            if (downloadResult.isSuccess) {
+                val data = downloadResult.getOrNull()!!
+
+                // Save to temporary cache directory
+                val cacheDir = context.cacheDir
+                val tempFile = File(cacheDir, attachment.filename)
+                tempFile.writeBytes(data)
+
+                withContext(Dispatchers.Main) {
+                    // Apri direttamente il file
+                    try {
+                        val uri = FileProvider.getUriForFile(
+                            context,
+                            "${context.packageName}.fileprovider",
+                            tempFile
+                        )
+                        val intent = Intent(Intent.ACTION_VIEW).apply {
+                            setDataAndType(uri, attachment.mimeType)
+                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        context.startActivity(Intent.createChooser(intent, "Apri con"))
+                    } catch (e: Exception) {
+                        Toast.makeText(context, "Impossibile aprire il file", Toast.LENGTH_SHORT).show()
+                    }
+
+                    onComplete()
+                }
+            } else {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Errore download", Toast.LENGTH_SHORT).show()
+                    onComplete()
+                }
+            }
+        } catch (e: Exception) {
+            withContext(Dispatchers.Main) {
+                Toast.makeText(context, "Errore: ${e.message}", Toast.LENGTH_SHORT).show()
+                onComplete()
+            }
+        }
+    }
+}
+
+private fun showDownloadNotification(
+    context: Context,
+    file: File,
+    attachment: EmailAttachment
+) {
+    val channelId = "download_channel"
+    val notificationId = System.currentTimeMillis().toInt()
+
+    // Crea il canale di notifica (necessario per Android 8.0+)
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        val channel = NotificationChannel(
+            channelId,
+            "Download Allegati",
+            NotificationManager.IMPORTANCE_DEFAULT
+        ).apply {
+            description = "Notifiche per download allegati email"
+        }
+        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        notificationManager.createNotificationChannel(channel)
+    }
+
+    // Crea Intent per aprire il file
+    val uri = FileProvider.getUriForFile(
+        context,
+        "${context.packageName}.fileprovider",
+        file
+    )
+
+    val openIntent = Intent(Intent.ACTION_VIEW).apply {
+        setDataAndType(uri, attachment.mimeType)
+        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    }
+
+    val pendingIntent = PendingIntent.getActivity(
+        context,
+        notificationId,
+        Intent.createChooser(openIntent, "Apri con"),
+        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+    )
+
+    // Crea Intent per condividere il file
+    val shareIntent = Intent(Intent.ACTION_SEND).apply {
+        type = attachment.mimeType
+        putExtra(Intent.EXTRA_STREAM, uri)
+        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    }
+
+    val sharePendingIntent = PendingIntent.getActivity(
+        context,
+        notificationId + 1,
+        Intent.createChooser(shareIntent, "Condividi"),
+        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+    )
+
+    // Costruisci la notifica
+    val notification = NotificationCompat.Builder(context, channelId)
+        .setSmallIcon(android.R.drawable.stat_sys_download_done)
+        .setContentTitle("Download completato")
+        .setContentText("${attachment.filename} (${formatFileSize(attachment.size)})")
+        .setStyle(NotificationCompat.BigTextStyle()
+            .bigText("${attachment.filename}\nSalvato in Download"))
+        .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+        .setContentIntent(pendingIntent)
+        .addAction(
+            android.R.drawable.ic_menu_share,
+            "Condividi",
+            sharePendingIntent
+        )
+        .setAutoCancel(true)
+        .build()
+
+    // Mostra la notifica
+    try {
+        NotificationManagerCompat.from(context).notify(notificationId, notification)
+    } catch (e: SecurityException) {
+        // Permesso notifiche non concesso - ignora
     }
 }
 

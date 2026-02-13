@@ -883,6 +883,7 @@ private fun BackupDialog(
     LaunchedEffect(uiState.cloudRestoreIntent) {
         uiState.cloudRestoreIntent?.let { intent ->
             restoreFromCloudLauncher.launch(intent)
+            viewModel.clearCloudIntents()
         }
     }
 
@@ -1185,6 +1186,50 @@ private fun CloudBackupContent(
                 Icon(Icons.Default.CloudDownload, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("Ripristina Backup da Cloud")
+            }
+        }
+
+        // Risultato operazioni
+        uiState.backupResult?.let { result ->
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = when (result) {
+                        is BackupResult.Success -> MaterialTheme.colorScheme.primaryContainer
+                        is BackupResult.Error -> MaterialTheme.colorScheme.errorContainer
+                    }
+                )
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        when (result) {
+                            is BackupResult.Success -> Icons.Default.CheckCircle
+                            is BackupResult.Error -> Icons.Default.Error
+                        },
+                        contentDescription = null,
+                        tint = when (result) {
+                            is BackupResult.Success -> MaterialTheme.colorScheme.onPrimaryContainer
+                            is BackupResult.Error -> MaterialTheme.colorScheme.onErrorContainer
+                        }
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = when (result) {
+                            is BackupResult.Success -> result.message
+                            is BackupResult.Error -> result.message
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = when (result) {
+                            is BackupResult.Success -> MaterialTheme.colorScheme.onPrimaryContainer
+                            is BackupResult.Error -> MaterialTheme.colorScheme.onErrorContainer
+                        }
+                    )
+                }
             }
         }
 
